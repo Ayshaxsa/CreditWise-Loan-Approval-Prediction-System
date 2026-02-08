@@ -1,34 +1,49 @@
 import streamlit as st
-import numpy as np
-import pickle
+import pandas as pd
+import joblib  # use joblib since your model is saved with joblib
 
-# Load model and scaler
-model = pickle.load(open("loan_model.pkl", "rb"))
-scaler = pickle.load(open("scaler.pkl", "rb"))
+# Load the trained Naive Bayes model
+model = joblib.load("naive_bayes_model.pkl")
 
 st.set_page_config(page_title="CreditWise Loan System")
 
 st.title("💳 CreditWise Loan Approval System")
 st.write("Enter applicant details to predict loan approval.")
 
-# User inputs
-age = st.number_input("Age", min_value=18, max_value=70, value=30)
-income = st.number_input("Annual Income", min_value=0, value=50000)
-credit_score = st.number_input("Credit Score", min_value=300, max_value=900, value=650)
-loan_amount = st.number_input("Loan Amount", min_value=0, value=20000)
-loan_term = st.number_input("Loan Term (months)", min_value=1, value=36)
+# User inputs matching your dataset
+gender = st.selectbox("Gender", ["Male", "Female"])
+married = st.selectbox("Married", ["Yes", "No"])
+education = st.selectbox("Education", ["Graduate", "Not Graduate"])
+income = st.number_input("Applicant Income", min_value=0)
+loan_amount = st.number_input("Loan Amount", min_value=0)
+credit_history = st.selectbox("Credit History", [1, 0])
 
-if st.button("Predict Loan Approval"):
-    # Create input array
-    input_data = np.array([[age, income, credit_score, loan_amount, loan_term]])
-    
-    # Scale input
-    input_scaled = scaler.transform(input_data)
-    
-    # Predict
-    prediction = model.predict(input_scaled)[0]
-    
-    if prediction == 1:
-        st.success("Loan Approved ✅")
-    else:
-        st.error("Loan Rejected ❌")
+# Create dataframe from user input
+input_df = pd.DataFrame({
+    'Gender': [gender],
+    'Married': [married],
+    'Education': [education],
+    'ApplicantIncome': [income],
+    'LoanAmount': [loan_amount],
+    'Credit_History': [credit_history]
+})
+
+# Preprocess input (same as your training preprocessing)
+def preprocess(df):
+    df = df.copy()
+    df['Gender'] = df['Gender'].map({'Male': 1, 'Female': 0})
+    df['Married'] = df['Married'].map({'Yes': 1, 'No': 0})
+    df['Education'] = df['Education'].map({'Graduate': 1, 'Not Graduate': 0})
+    return df
+
+processed_input = preprocess(input_df)
+
+# Prediction
+prediction = model.predict(processed_input)[0]
+prediction_proba = model.predict_proba(processed_input)
+
+st.subheader("Prediction")
+st.write("Approved ✅" if prediction == 1 else "Rejected ❌")
+
+st.subheader("Prediction Probability")
+st.write(prediction_proba)
