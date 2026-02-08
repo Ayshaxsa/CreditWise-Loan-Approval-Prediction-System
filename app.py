@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import joblib  # use joblib since your model is saved with joblib
+import joblib  # your model was saved with joblib
 
 # Load the trained Naive Bayes model
 model = joblib.load("naive_bayes_model.pkl")
@@ -14,8 +14,8 @@ st.write("Enter applicant details to predict loan approval.")
 gender = st.selectbox("Gender", ["Male", "Female"])
 married = st.selectbox("Married", ["Yes", "No"])
 education = st.selectbox("Education", ["Graduate", "Not Graduate"])
-income = st.number_input("Applicant Income", min_value=0)
-loan_amount = st.number_input("Loan Amount", min_value=0)
+income = st.number_input("Applicant Income", min_value=0, value=50000)
+loan_amount = st.number_input("Loan Amount", min_value=0, value=20000)
 credit_history = st.selectbox("Credit History", [1, 0])
 
 # Create dataframe from user input
@@ -28,12 +28,19 @@ input_df = pd.DataFrame({
     'Credit_History': [credit_history]
 })
 
-# Preprocess input (same as your training preprocessing)
+# Preprocess input (must match training preprocessing exactly)
 def preprocess(df):
     df = df.copy()
+    # Encode categorical columns
     df['Gender'] = df['Gender'].map({'Male': 1, 'Female': 0})
     df['Married'] = df['Married'].map({'Yes': 1, 'No': 0})
     df['Education'] = df['Education'].map({'Graduate': 1, 'Not Graduate': 0})
+    # Ensure numeric columns have correct types
+    df['ApplicantIncome'] = df['ApplicantIncome'].astype(float)
+    df['LoanAmount'] = df['LoanAmount'].astype(float)
+    df['Credit_History'] = df['Credit_History'].astype(int)
+    # Reorder columns exactly as in training
+    df = df[['Gender', 'Married', 'Education', 'ApplicantIncome', 'LoanAmount', 'Credit_History']]
     return df
 
 processed_input = preprocess(input_df)
