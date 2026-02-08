@@ -1,16 +1,19 @@
 import streamlit as st
 import pandas as pd
-import joblib
 import numpy as np
+import joblib
 
-# Load model, OHE encoder, and column list
+# --- LOAD MODEL AND ENCODERS ---
 model = joblib.load("naive_bayes_model.pkl")
 ohe = joblib.load("ohe_encoder.pkl")
-model_columns = joblib.load("model_columns.pkl")
+le = joblib.load("le_encoder.pkl")
+model_columns = joblib.load("model_columns.pkl")  # all training columns
 
+st.set_page_config(page_title="CreditWise Loan System")
 st.title("💳 CreditWise Loan Approval System")
+st.write("Enter applicant details to predict loan approval.")
 
-# ---- User inputs ----
+# --- USER INPUTS ---
 gender = st.selectbox("Gender", ["Male", "Female"])
 married = st.selectbox("Marital Status", ["Single", "Married"])
 education = st.selectbox("Education Level", ["Graduate", "Not Graduate"])
@@ -28,7 +31,7 @@ collateral_value = st.number_input("Collateral Value", min_value=0)
 loan_amount = st.number_input("Loan Amount", min_value=0)
 loan_term = st.number_input("Loan Term", min_value=1)
 
-# ---- Make dataframe from inputs ----
+# --- CREATE DATAFRAME ---
 input_df = pd.DataFrame({
     'Marital_Status': [married],
     'Loan_Purpose': [loan_purpose],
@@ -48,26 +51,26 @@ input_df = pd.DataFrame({
     'Loan_Term': [loan_term]
 })
 
-# ---- Encode categorical features ----
-encoded_cols = ohe.transform(input_df[['Marital_Status', 'Loan_Purpose', 'Employment_Status', 
-                                       'Property_Area', 'Gender', 'Employer_Category']])
-encoded_df = pd.DataFrame(encoded_cols, columns=ohe.get_feature_names_out(), index=input_df.index)
+# --- ENCODE CATEGORICALS ---
+cat_cols = ['Marital_Status', 'Loan_Purpose', 'Employment_Status', 
+            'Property_Area', 'Gender', 'Employer_Category']
+encoded = ohe.transform(input_df[cat_cols])
+encoded_df = pd.DataFrame(encoded, columns=ohe.get_feature_names_out(), index=input_df.index)
+input_df = pd.concat([input_df.drop(cat_cols, axis=1), encoded_df], axis=1)
 
-# Drop original categorical cols and add encoded
-input_df = pd.concat([input_df.drop(['Marital_Status','Loan_Purpose','Employment_Status',
-                                    'Property_Area','Gender','Employer_Category'], axis=1), encoded_df], axis=1)
+# --- SAFE EDUCATION LABEL ENCODING ---
+if education not in le.classes_:
+    input_df['Education_Level'] = le.transform([le.classes_[0]])  # default to first class
+else:
+    input_df['Education_Level'] = le.transform([education])
 
-# ---- Encode Education ----
-le = joblib.load("le_encoder.pkl")  # make sure you saved this during training
-input_df['Education_Level'] = le.transform(input_df['Education_Level'])
-
-# ---- Add missing columns and reorder ----
+# --- ALIGN COLUMNS TO TRAINING ---
 for col in model_columns:
     if col not in input_df.columns:
-        input_df[col] = 0
-input_df = input_df[model_columns]  # reorder exactly
+        input_df[col] = 0  # fill missing columns with 0
+input_df = input_df[model_columns]
 
-# ---- Prediction ----
+# --- PREDICTION ---
 prediction = model.predict(input_df)[0]
 prediction_proba = model.predict_proba(input_df)[0]
 
